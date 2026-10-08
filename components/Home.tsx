@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AccountSheet, SyncPill } from "@/components/AccountSheet";
 import { GenerateSheet } from "@/components/GenerateSheet";
+import { ChevronLeftIcon } from "@/components/icons/chevron-left";
+import { ChevronRightIcon } from "@/components/icons/chevron-right";
+import { XIcon } from "@/components/icons/x";
 import { DAILY_DIFFICULTIES, formatDate, localDate, shiftDate } from "@/lib/daily";
 import { capitalize, formatTime } from "@/lib/format";
 import { dailyId, progressOf, type GameRecord } from "@/lib/game/types";
@@ -69,11 +72,11 @@ export function Home() {
           {date && today && (
             <div className="date-nav">
               <button className="icon-button" onClick={() => setDate(shiftDate(date, -1))} aria-label="Previous day">
-                ‹
+                <ChevronLeftIcon size={20} />
               </button>
               <span>{date === today ? "Today" : formatDate(date)}</span>
               <button className="icon-button" onClick={() => setDate(shiftDate(date, 1))} disabled={date >= today} aria-label="Next day">
-                ›
+                <ChevronRightIcon size={20} />
               </button>
             </div>
           )}
@@ -83,7 +86,7 @@ export function Home() {
             DAILY_DIFFICULTIES.map((d) => {
               const game = byId.get(dailyId(date, d));
               return (
-                <Link key={d} href={`/play/${dailyId(date, d)}`} className={`card daily ${d}`}>
+                <Link key={d} href={`/play/${dailyId(date, d)}`} className={`beveled daily ${d}`}>
                   <span className={`badge ${d}`}>{capitalize(d)}</span>
                   <Status game={game} />
                   {game && game.updatedAt > 0 && <Progress game={game} />}
@@ -129,7 +132,7 @@ export function Home() {
                   aria-label={`Delete ${g.title}`}
                   onClick={() => confirm(`Delete "${g.title}"?`) && deleteGame(g.id)}
                 >
-                  ✕
+                  <XIcon size={18} />
                 </button>
               </li>
             ))}

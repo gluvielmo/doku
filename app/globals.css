@@ -33,6 +33,7 @@
   --c8: rgba(230, 100, 180, 0.4);
   --c9: rgba(120, 120, 130, 0.4);
   --radius: 12px;
+  --radius-soft: 32px; /* non-button corners where squircles are supported */
   --board-radius: 22px;
   /* Concentric with --board-radius, inset by .board's 2px padding. */
   --board-inner-radius: calc(var(--board-radius) - 2px);
@@ -131,9 +132,14 @@ h3 {
 }
 
 kbd {
+  display: inline-block;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.75em;
-  padding: 1px 5px;
+  line-height: 1;
+  /* Trim the line box to the capital letters, so Z/X/C sit in the middle instead of riding high
+     over unused descender space. Browsers without text-box just show the old, slightly high look. */
+  text-box: trim-both cap alphabetic;
+  padding: 3px 5px;
   border: 1px solid var(--border);
   border-bottom-width: 2px;
   border-radius: 4px;
@@ -163,10 +169,19 @@ kbd {
   font-size: 1.05rem;
 }
 
-.ghost,
-.button.ghost {
+.ghost {
   min-height: 40px;
   padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.button.ghost {
+  min-height: 44px;
+  padding: 0 18px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: transparent;
@@ -193,6 +208,12 @@ kbd {
   content: "";
   flex: 1;
   border-top: 1px solid var(--border);
+}
+
+/* The icon components wrap an inline <svg> in a <div>. Inline SVG sits on the text baseline with
+   descender space under it, which pushes the icon up; as a block it centres properly. */
+:is(button, a) > div > svg {
+  display: block;
 }
 
 .icon-button {
@@ -335,6 +356,55 @@ kbd {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
 
+/* ---------- bevelled cards ---------- */
+/* One knob, --beveled-card-base; light, dark, gradient, border and bevel all derive from it.
+   Colours are fixed rather than theme tokens so it reads as the same object in light and dark mode.
+   Mixing is in sRGB on purpose: oklch mixing comes out less desaturated. */
+
+.beveled {
+  --beveled-card-base: oklch(0.205 0.037 59.5);
+  --beveled-card-light: color-mix(in srgb, var(--beveled-card-base) 45%, white);
+  --beveled-card-dark: color-mix(in srgb, var(--beveled-card-base) 80%, oklch(0.1 0.037 59.5));
+  position: relative;
+  overflow: hidden;
+  translate: 0 2px;
+  border: 1px solid var(--beveled-card-dark);
+  border-radius: 14px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--beveled-card-base) 96%, white),
+    color-mix(in srgb, var(--beveled-card-base) 99%, oklch(0.1 0.037 59.5))
+  );
+  color: #fff;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 0.05),
+    0 2px 4px -2px rgb(0 0 0 / 0.05);
+  transition: translate 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.beveled::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  box-shadow:
+    0 -1px 0 color-mix(in srgb, var(--beveled-card-light) 18%, transparent),
+    0 1px 0 color-mix(in srgb, var(--beveled-card-dark) 18%, transparent);
+}
+
+@media (hover: hover) {
+  .beveled:hover:not(:disabled) {
+    translate: 0 0;
+  }
+}
+
+/* Touch screens have no hover, so give presses their own feedback. */
+.beveled:active:not(:disabled) {
+  translate: 0 2px;
+  filter: brightness(0.9);
+}
+
 .continue {
   display: flex;
   flex-direction: column;
@@ -361,17 +431,39 @@ kbd {
   gap: 10px;
 }
 
-.card.daily {
+.daily {
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-height: 96px;
+  padding: 16px;
   font-size: 0.875rem;
 }
+.daily.easy { --beveled-card-base: oklch(0.47 0.17 144.94); }
+.daily.medium { --beveled-card-base: oklch(0.6 0.15 59.51); }
+.daily.hard { --beveled-card-base: oklch(0.48 0.17 24.29); }
 
-.card.daily .badge {
+.daily .badge {
   align-self: flex-start;
   font-size: 0.85rem;
+  color: #fff;
+  background: rgb(255 255 255 / 0.12);
+}
+
+.daily .muted {
+  color: rgb(255 255 255 / 0.6);
+}
+
+.daily .solved-text {
+  color: #fff;
+}
+
+.daily .progress {
+  background: rgb(255 255 255 / 0.15);
+}
+
+.daily .progress > div {
+  background: #fff;
 }
 
 .solved-text {
@@ -614,7 +706,10 @@ kbd {
 
 .marks-corner {
   position: absolute;
-  inset: 5%;
+  /* Same inset in every cell so marks stay aligned across the board, but deep enough that the
+     outermost slot of the 4 corner cells clears their rounded clip (on phones the curve covers
+     over half a cell). Tied to the radius so it follows if the board radius changes. */
+  inset: max(5%, calc(var(--board-inner-radius) * 0.22));
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
@@ -683,14 +778,33 @@ kbd {
 }
 
 .layers {
+  --layers-pad: 4px;
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  padding: 3px;
+  padding: var(--layers-pad);
   border-radius: 12px;
   background: var(--surface-2);
 }
 
+/* One highlight that slides to the active mode (--i is its index). Fast ease-out, no overshoot:
+   at the outer tabs an overshoot would carry it past the container's edge. */
+.layers-indicator {
+  position: absolute;
+  top: var(--layers-pad);
+  bottom: var(--layers-pad);
+  left: var(--layers-pad);
+  width: calc((100% - 2 * var(--layers-pad)) / 3);
+  border-radius: calc(12px - var(--layers-pad));
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  translate: calc(var(--i) * 100%) 0;
+  transition: translate 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .layers button {
+  position: relative;
+  transition: color 200ms ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -705,13 +819,16 @@ kbd {
 }
 
 .layers button.active {
-  background: var(--surface);
   color: var(--text);
-  box-shadow: var(--shadow);
 }
 
 .layers kbd {
   font-size: 0.65rem;
+}
+
+/* Trimmed like kbd, so centring the two lines up their capitals instead of their line boxes. */
+.layer-label {
+  text-box: trim-both cap alphabetic;
 }
 
 @media (hover: none) {
@@ -727,27 +844,29 @@ kbd {
 }
 
 .pad button {
-  position: relative;
   height: clamp(48px, 7dvh, 64px);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
 }
 
-.pad button:active {
-  transform: scale(0.97);
-  background: var(--surface-2);
+.pad.mode-normal button {
+  --beveled-card-base: oklch(0.26 0.037 59.5);
 }
 
-.pad button.done {
+/* Pencil-mark modes switch to a richer version of the accent hue so the mode is obvious at a glance. */
+.pad.mode-corner button,
+.pad.mode-center button {
+  --beveled-card-base: oklch(0.34 0.1 60);
+}
+
+/* A finished digit stays down and fades. */
+.pad button.done,
+.pad button.done:hover {
   opacity: 0.35;
+  translate: 0 2px;
 }
 
 .pad-digit {
   font-size: 1.6rem;
   font-weight: 500;
-  color: var(--entry);
 }
 
 .pad-count {
@@ -755,18 +874,28 @@ kbd {
   top: 5px;
   right: 8px;
   font-size: 0.7rem;
-  color: var(--muted);
+  color: rgb(255 255 255 / 0.6);
+}
+
+.flip {
+  animation: flip-in 240ms cubic-bezier(0.2, 0.8, 0.3, 1.25);
+}
+
+@keyframes flip-in {
+  from {
+    transform: translateY(-80%) rotateX(80deg);
+    opacity: 0;
+  }
 }
 
 .pad-center {
   font-size: 1.05rem;
-  color: var(--entry);
 }
 
 .pad-corner {
   position: absolute;
   font-size: 0.95rem;
-  color: var(--muted);
+  opacity: 0.8;
 }
 .pad-corner.tl { top: 6px; left: 10px; }
 .pad-corner.tc { top: 6px; left: 50%; transform: translateX(-50%); }
@@ -835,6 +964,16 @@ kbd {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
+  /* Grows out of the More button it's anchored to. */
+  transform-origin: bottom right;
+  animation: menu-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
 }
 
 .menu button {
@@ -843,6 +982,19 @@ kbd {
   border-radius: 8px;
   background: transparent;
   text-align: left;
+  animation: menu-item-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Items arrive bottom-up, nearest the button first. */
+.menu button:nth-last-child(1) { animation-delay: 30ms; }
+.menu button:nth-last-child(2) { animation-delay: 60ms; }
+.menu button:nth-last-child(3) { animation-delay: 90ms; }
+
+@keyframes menu-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
 .menu button:hover {
@@ -1052,4 +1204,78 @@ kbd {
 .validation.bad {
   background: color-mix(in srgb, var(--medium) 12%, transparent);
   color: var(--medium);
+}
+
+/* ---------- squircle corners (Chromium 139+; others keep round corners) ---------- */
+/* Not on the board: its corner radii are matched to the cells and boxes inside it. */
+
+/* Where squircles are supported, everything gets the sync pill's shape: maximum radius drawn as a
+   superellipse. Elsewhere 999px would turn keys and cards into circles and capsules, so they keep
+   their normal radii. Left out: the sheet (its header sits in the corners) and the scan photos
+   (the grid's corners would be cropped), which only get the squircle curve. */
+@supports (corner-shape: squircle) {
+  .sheet,
+  .scan-preview,
+  .photo-ref img {
+    corner-shape: squircle;
+  }
+
+  /* Buttons: fully round, like the sync pill. */
+  .pill,
+  .button,
+  .ghost,
+  .button.ghost,
+  .sheet button:not(.ghost),
+  .icon-button,
+  .beveled,
+  .beveled::before,
+  .layers button,
+  .layers-indicator,
+  .tools > button,
+  .menu-wrap > button,
+  .menu button {
+    corner-shape: squircle;
+    border-radius: 999px;
+  }
+
+  /* Everything else: capped at --radius-soft, so only tall things (cards, menus) look less round. */
+  .badge,
+  .text,
+  .toggle select,
+  kbd,
+  .card,
+  .card.puzzle img,
+  .thumb-placeholder,
+  .daily,
+  .layers,
+  .menu,
+  .board-message,
+  .validation,
+  .progress {
+    corner-shape: squircle;
+    border-radius: var(--radius-soft);
+  }
+
+  .daily::before {
+    border-radius: calc(var(--radius-soft) - 1px);
+  }
+
+  /* Concentric with the card: inset by its 1px border + 10px padding. */
+  .card.puzzle img,
+  .card.puzzle .thumb-placeholder {
+    border-radius: calc(var(--radius-soft) - 11px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip,
+  .menu,
+  .menu button {
+    animation: none;
+  }
+  .beveled,
+  .layers-indicator,
+  .layers button {
+    transition: none;
+  }
 }

@@ -9,6 +9,7 @@ const TOGGLES: { key: keyof Settings; label: string; help: string }[] = [
   { key: "showMistakes", label: "Show mistakes instantly", help: "Mark digits that don't match the solution." },
   { key: "autoRemoveNotes", label: "Auto-remove notes", help: "Placing a digit clears it from marks in its row, column and box." },
   { key: "showTimer", label: "Show timer", help: "" },
+  { key: "sound", label: "Sounds", help: "Clicks when you place digits, and a chime when you solve." },
 ];
 
 export function SettingsSheet({ settings, onChange, onClose }: { settings: Settings; onChange: (s: Settings) => void; onClose: () => void }) {

@@ -39,6 +39,7 @@ export interface Settings {
   autoRemoveNotes: boolean;
   cornerLayout: "grid" | "corners";
   showTimer: boolean;
+  sound: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -49,6 +50,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoRemoveNotes: true,
   cornerLayout: "grid",
   showTimer: true,
+  sound: true,
 };
 
 export const emptyCells = (): CellState[] => Array.from({ length: 81 }, () => ({ v: 0, c: 0, m: 0, k: 0 }));

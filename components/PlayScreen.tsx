@@ -5,10 +5,14 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Board } from "@/components/Board";
 import { Controls } from "@/components/Controls";
 import { SettingsSheet } from "@/components/SettingsSheet";
+import { ArrowLeftIcon } from "@/components/icons/arrow-left";
+import { PauseIcon } from "@/components/icons/pause";
+import { PlayIcon } from "@/components/icons/play";
 import { ensureDailyGame, parseDailyId } from "@/lib/daily";
 import { capitalize, formatTime } from "@/lib/format";
 import { initBoard, reducer, type Action } from "@/lib/game/reducer";
 import { boardValues, type GameRecord, type Layer, type Settings } from "@/lib/game/types";
+import { playMoveSound } from "@/lib/sfx";
 import { getGame, loadSettings, saveGame, saveSettings, useGame } from "@/lib/store";
 
 const KEY_LAYERS: Record<string, Layer> = { KeyZ: "normal", KeyX: "corner", KeyC: "center" };
@@ -113,7 +117,11 @@ function Game({ initial }: { initial: GameRecord }) {
   const filledButWrong = !solved && values.every(Boolean);
 
   const act = (a: Action) => {
-    if (!paused) dispatch(a);
+    if (paused) return;
+    // The reducer is pure, so running it here too tells us what the move changed, for its sound.
+    const prev = stateRef.current;
+    playMoveSound(prev, reducer(prev, a), a);
+    dispatch(a);
   };
 
   const changeSettings = (next: Settings) => {
@@ -133,17 +141,17 @@ function Game({ initial }: { initial: GameRecord }) {
       if (digit) {
         e.preventDefault();
         const d = Number(digit[1]);
-        if (d === 0) return dispatch({ type: "erase" });
+        if (d === 0) return act({ type: "erase" });
         const layer: Layer | undefined = e.shiftKey ? "corner" : mod ? "center" : undefined;
-        return dispatch({ type: "input", digit: d, layer });
+        return act({ type: "input", digit: d, layer });
       }
       if (mod && e.code === "KeyZ") {
         e.preventDefault();
-        return dispatch({ type: e.shiftKey ? "redo" : "undo" });
+        return act({ type: e.shiftKey ? "redo" : "undo" });
       }
       if (mod && e.code === "KeyY") {
         e.preventDefault();
-        return dispatch({ type: "redo" });
+        return act({ type: "redo" });
       }
       if (mod && e.code === "KeyA") {
         e.preventDefault();
@@ -161,7 +169,7 @@ function Game({ initial }: { initial: GameRecord }) {
       }
       if (e.code === "Backspace" || e.code === "Delete") {
         e.preventDefault();
-        return dispatch({ type: "erase" });
+        return act({ type: "erase" });
       }
       if (e.code === "Escape") return dispatch({ type: "deselect" });
     };
@@ -173,7 +181,7 @@ function Game({ initial }: { initial: GameRecord }) {
     <div className="screen play">
       <header className="play-head">
         <Link href="/" className="icon-button" aria-label="Back">
-          ←
+          <ArrowLeftIcon size={20} />
         </Link>
         <div className="play-title">
           <strong>{s.rec.title}</strong>
@@ -182,7 +190,7 @@ function Game({ initial }: { initial: GameRecord }) {
         {s.settings.showTimer && <span className="timer">{formatTime(s.rec.elapsedMs)}</span>}
         {!solved && (
           <button className="icon-button" onClick={() => setPaused((p) => !p)} aria-label={paused ? "Resume" : "Pause"}>
-            {paused ? "▶" : "❚❚"}
+            {paused ? <PlayIcon size={20} /> : <PauseIcon size={20} />}
           </button>
         )}
       </header>

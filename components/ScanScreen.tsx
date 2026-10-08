@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Board } from "@/components/Board";
+import { ArrowLeftIcon } from "@/components/icons/arrow-left";
 import { capitalize } from "@/lib/format";
 import { prepareImage, type PreparedImage } from "@/lib/image";
 import { DEFAULT_SETTINGS, emptyCells, newGame } from "@/lib/game/types";
@@ -123,7 +124,7 @@ export function ScanScreen({ manual = false }: { manual?: boolean }) {
     <div className="screen scan">
       <header className="play-head">
         <Link href="/" className="icon-button" aria-label="Back">
-          ←
+          <ArrowLeftIcon size={20} />
         </Link>
         <div className="play-title">
           <strong>{manual ? "Enter a puzzle" : "Scan a puzzle"}</strong>

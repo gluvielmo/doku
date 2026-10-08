@@ -66,7 +66,8 @@ function Marks({ cell, layout, hl }: { cell: CellState; layout: Settings["corner
 export function Board(props: BoardProps) {
   const { givens, cells, solution, selection, settings, highlightDigit, flagged, hintFocus, hintTargets, paused } = props;
   const ref = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ active: boolean; last: number }>({ active: false, last: -1 });
+  // deselect: the press started on the only selected cell; it deselects on release unless it became a drag.
+  const drag = useRef<{ active: boolean; last: number; deselect: boolean }>({ active: false, last: -1, deselect: false });
   const lastTap = useRef<{ cell: number; at: number }>({ cell: -1, at: 0 });
 
   const values = useMemo(
@@ -98,15 +99,17 @@ export function Board(props: BoardProps) {
     e.preventDefault();
     ref.current?.setPointerCapture(e.pointerId);
     const now = performance.now();
-    if (lastTap.current.cell === cell && now - lastTap.current.at < 350) {
+    // Double-tap only means something on a filled cell; on an empty one it's just another tap.
+    if (values[cell] && lastTap.current.cell === cell && now - lastTap.current.at < 350) {
       props.onDoubleTap?.(cell);
       lastTap.current = { cell: -1, at: 0 };
       return;
     }
     lastTap.current = { cell, at: now };
     const multi = props.multi || e.ctrlKey || e.metaKey || e.shiftKey;
-    props.onSelect([cell], multi ? (selected.has(cell) && !e.shiftKey ? "toggle" : "add") : "replace");
-    drag.current = { active: true, last: cell };
+    const deselect = !multi && selection.length === 1 && selection[0] === cell;
+    if (!deselect) props.onSelect([cell], multi ? (selected.has(cell) && !e.shiftKey ? "toggle" : "add") : "replace");
+    drag.current = { active: true, last: cell, deselect };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -114,11 +117,13 @@ export function Board(props: BoardProps) {
     const cell = cellAt(e.clientX, e.clientY);
     if (cell < 0 || cell === drag.current.last) return;
     drag.current.last = cell;
+    drag.current.deselect = false;
     props.onSelect([cell], "add");
   };
 
-  const endDrag = () => {
-    drag.current.active = false;
+  const endDrag = (e: React.PointerEvent) => {
+    if (e.type === "pointerup" && drag.current.active && drag.current.deselect) props.onSelect?.([], "replace");
+    drag.current = { active: false, last: -1, deselect: false };
   };
 
   return (
