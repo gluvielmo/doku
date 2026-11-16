@@ -163,6 +163,15 @@ export async function signOut() {
   await getSupabase()?.auth.signOut();
 }
 
+/** Permanently deletes the signed-in account and its synced games, then signs out. Local progress stays. */
+export async function deleteAccount() {
+  const sb = getSupabase();
+  if (!sb) throw new Error("Sync is not configured");
+  const { error } = await sb.rpc("delete_my_account");
+  if (error) throw new Error(`Couldn't delete the account: ${error.message}`);
+  await sb.auth.signOut({ scope: "local" });
+}
+
 export async function getAccessToken(): Promise<string | null> {
   const sb = getSupabase();
   if (!sb) return null;

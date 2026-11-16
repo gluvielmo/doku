@@ -10,6 +10,7 @@ import { XIcon } from "@/components/icons/x";
 import { DAILY_DIFFICULTIES, formatDate, localDate, shiftDate } from "@/lib/daily";
 import { capitalize, formatTime, puzzleTitle } from "@/lib/format";
 import { dailyId, progressOf, type GameRecord } from "@/lib/game/types";
+import { feedbackHref } from "@/lib/site";
 import { deleteGame, useGames } from "@/lib/store";
 
 function Status({ game }: { game?: GameRecord }) {
@@ -35,6 +36,7 @@ export function Home() {
   const [today, setToday] = useState<string | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [account, setAccount] = useState(false);
+  const feedback = feedbackHref();
   const [generate, setGenerate] = useState(false);
 
   // Dates depend on the device's timezone, so compute them on the client.
@@ -139,6 +141,11 @@ export function Home() {
           </ul>
         )}
       </section>
+
+      <footer className="home-foot">
+        <Link href="/privacy">Privacy</Link>
+        {feedback && <a href={feedback}>Send feedback</a>}
+      </footer>
 
       {account && <AccountSheet onClose={() => setAccount(false)} />}
       {generate && <GenerateSheet onClose={() => setGenerate(false)} />}

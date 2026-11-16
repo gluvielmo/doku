@@ -1399,3 +1399,64 @@ kbd {
     transition: none;
   }
 }
+
+/* ---------- footer, fine print, text pages ---------- */
+
+.home-foot {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 8px 0 4px;
+  font-size: 0.85rem;
+}
+.home-foot a {
+  color: var(--muted);
+}
+
+.fine {
+  font-size: 0.8rem;
+  margin: 0;
+}
+.fine a {
+  color: inherit;
+}
+
+.sheet button.link {
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font-weight: 500;
+  text-decoration: underline;
+}
+.sheet button.link.danger {
+  color: var(--danger);
+}
+
+.prose {
+  max-width: 640px;
+  line-height: 1.55;
+}
+.prose h1 {
+  margin: 20px 0 4px;
+  font-size: 1.75rem;
+}
+.prose h2 {
+  margin: 28px 0 8px;
+  font-size: 1.15rem;
+}
+.prose ul {
+  padding-left: 20px;
+}
+.prose li + li {
+  margin-top: 6px;
+}
+.prose a {
+  color: var(--accent);
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}

@@ -1,4 +1,4 @@
--- Run once in the Supabase SQL editor.
+-- Run in the Supabase SQL editor. Safe to run again after pulling changes.
 
 create table if not exists public.games (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
@@ -28,4 +28,63 @@ as $$
 $$;
 
 -- Live updates to other open devices.
-alter publication supabase_realtime add table public.games;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'games'
+  ) then
+    alter publication supabase_realtime add table public.games;
+  end if;
+end $$;
+
+-- Daily scan quota. Users can't read or write this table directly (RLS on, no policies);
+-- only the two functions below touch it, and only for the calling user's own row.
+create table if not exists public.scan_usage (
+  user_id uuid not null references auth.users on delete cascade,
+  day date not null,
+  count int not null default 0,
+  primary key (user_id, day)
+);
+
+alter table public.scan_usage enable row level security;
+
+-- Scans the calling user has made today (UTC).
+create or replace function public.scans_today()
+returns int
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    (select count from public.scan_usage where user_id = auth.uid() and day = (now() at time zone 'utc')::date),
+    0
+  );
+$$;
+
+-- Records one successful scan for the calling user. Calling it directly only uses up your own quota.
+create or replace function public.record_scan()
+returns int
+language sql
+security definer
+set search_path = ''
+as $$
+  insert into public.scan_usage (user_id, day, count)
+  values (auth.uid(), (now() at time zone 'utc')::date, 1)
+  on conflict (user_id, day) do update set count = public.scan_usage.count + 1
+  returning count;
+$$;
+
+-- Deletes the calling user's account. Their games and scan usage go with it (on delete cascade).
+create or replace function public.delete_my_account()
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  delete from auth.users where id = auth.uid();
+$$;
+
+revoke all on function public.scans_today(), public.record_scan(), public.delete_my_account() from public, anon;
+grant execute on function public.scans_today(), public.record_scan(), public.delete_my_account() to authenticated;

@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { sendLoginCode, signInWithGoogle, signOut, syncAll, useSyncState, verifyLoginCode } from "@/lib/sync/engine";
+import { deleteAccount, sendLoginCode, signInWithGoogle, signOut, syncAll, useSyncState, verifyLoginCode } from "@/lib/sync/engine";
 
 function GoogleLogo() {
   return (
@@ -83,6 +84,9 @@ export function AccountSheet({ onClose }: { onClose: () => void }) {
                 Email me a code
               </button>
             </form>
+            <p className="muted fine">
+              Signing in stores your email and puzzle progress. See the <Link href="/privacy">privacy page</Link>.
+            </p>
           </div>
         )}
 
@@ -124,6 +128,21 @@ export function AccountSheet({ onClose }: { onClose: () => void }) {
                 Sign out
               </button>
             </div>
+            <button
+              className="link danger"
+              disabled={busy}
+              onClick={() => {
+                if (
+                  confirm(
+                    `Delete the account ${sync.email}?\n\nThis permanently removes your synced puzzles and can't be undone. Progress saved on this device stays.`,
+                  )
+                ) {
+                  void run(deleteAccount);
+                }
+              }}
+            >
+              Delete account
+            </button>
           </div>
         )}
 
