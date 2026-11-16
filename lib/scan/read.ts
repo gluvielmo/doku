@@ -9,7 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { BOXES, COLS, ROWS, type Grid } from "@/lib/sudoku/core";
 import { solve } from "@/lib/sudoku/solver";
 
-export const SCAN_MODEL = "claude-opus-5-5";
+export const SCAN_MODEL = "claude-sonnet-5-5";
 
 export type MediaType = "image/jpeg" | "image/png" | "image/webp";
 
