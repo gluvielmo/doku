@@ -7,7 +7,7 @@
 import { useSyncExternalStore } from "react";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import type { GameRecord } from "@/lib/game/types";
-import { applyRemote, getAllRecords, setLocalChangeHandler } from "@/lib/store";
+import { applyRemote, clearGames, getAllRecords, getOwner, setLocalChangeHandler, setOwner } from "@/lib/store";
 import { getSupabase } from "./client";
 
 export type SyncStatus = "local" | "signedOut" | "syncing" | "synced" | "offline" | "error";
@@ -105,6 +105,15 @@ async function onSession(session: Session | null) {
     channel = null;
     return set({ status: "signedOut", email: null });
   }
+  // Games on this device that belong to a different account must not be uploaded into this one.
+  // They're safe in that account's cloud copy. Games played signed out (no owner) are kept and
+  // join this account, so progress made before the first sign-in isn't lost.
+  const owner = getOwner();
+  if (owner && owner !== userId) {
+    pending.clear();
+    clearGames();
+  }
+  setOwner(userId);
   set({ email: session!.user.email ?? null });
   subscribeRealtime();
   await syncAll();
@@ -137,7 +146,8 @@ export async function signInWithGoogle() {
   if (!sb) throw new Error("Sync is not configured");
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: window.location.origin + window.location.pathname },
+    // Always show Google's account picker, so a second account can be chosen.
+    options: { redirectTo: window.location.origin + window.location.pathname, queryParams: { prompt: "select_account" } },
   });
   if (error) throw error;
 }
@@ -159,8 +169,21 @@ export async function verifyLoginCode(email: string, token: string) {
   if (error) throw error;
 }
 
+/**
+ * Signs out and removes this account's games from the device; they stay in the cloud and come back
+ * on the next sign-in. If unsynced changes can't be uploaded (offline), the games are kept, still
+ * tied to this account, so nothing is lost and nothing leaks into another account.
+ */
 export async function signOut() {
-  await getSupabase()?.auth.signOut();
+  const sb = getSupabase();
+  if (!sb) return;
+  if (flushTimer) clearTimeout(flushTimer);
+  await pushNow();
+  await sb.auth.signOut();
+  if (!pending.size) {
+    clearGames();
+    setOwner(null);
+  }
 }
 
 /** Permanently deletes the signed-in account and its synced games, then signs out. Local progress stays. */
@@ -169,6 +192,9 @@ export async function deleteAccount() {
   if (!sb) throw new Error("Sync is not configured");
   const { error } = await sb.rpc("delete_my_account");
   if (error) throw new Error(`Couldn't delete the account: ${error.message}`);
+  // Local progress stays on the device, no longer tied to any account.
+  pending.clear();
+  setOwner(null);
   await sb.auth.signOut({ scope: "local" });
 }
 

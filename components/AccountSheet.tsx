@@ -147,6 +147,7 @@ export function AccountSheet({ onClose }: { onClose: () => void }) {
                 Sign out
               </button>
             </div>
+            <p className="muted fine">Signing out removes your puzzles from this device. They come back when you sign in again.</p>
             <button
               className="link danger"
               disabled={busy}

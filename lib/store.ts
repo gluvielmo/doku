@@ -8,6 +8,8 @@ import { DEFAULT_SETTINGS, type GameRecord, type Settings } from "@/lib/game/typ
 
 const GAME_PREFIX = "doku:game:";
 const SETTINGS_KEY = "doku:settings";
+// The account the local games belong to (null: played signed out, not tied to any account yet).
+const OWNER_KEY = "doku:owner";
 
 let games: Map<string, GameRecord> | null = null;
 let version = 0;
@@ -75,6 +77,35 @@ export function saveGame(rec: GameRecord) {
 export function deleteGame(id: string) {
   const rec = load().get(id);
   if (rec) saveGame({ ...rec, deleted: true, thumbnail: undefined, updatedAt: Date.now() });
+}
+
+export function getOwner(): string | null {
+  return storage()?.getItem(OWNER_KEY) ?? null;
+}
+
+export function setOwner(userId: string | null) {
+  try {
+    if (userId) storage()?.setItem(OWNER_KEY, userId);
+    else storage()?.removeItem(OWNER_KEY);
+  } catch {
+    // private mode: ownership just isn't remembered
+  }
+}
+
+/** Removes every game from this device (settings stay). Used when switching accounts. */
+export function clearGames() {
+  const ls = storage();
+  if (ls) {
+    const keys: string[] = [];
+    for (let i = 0; i < ls.length; i++) {
+      const key = ls.key(i);
+      if (key?.startsWith(GAME_PREFIX)) keys.push(key);
+    }
+    keys.forEach((k) => ls.removeItem(k));
+  }
+  games = new Map();
+  version++;
+  listeners.forEach((l) => l());
 }
 
 /** Accept a record from another device if it is newer. Returns true if applied. */
