@@ -10,7 +10,7 @@ export const maxDuration = 120; // two vision passes at most
 const MAX_BASE64_LENGTH = 7_000_000; // ~5 MB image
 const MEDIA_TYPES: MediaType[] = ["image/jpeg", "image/png", "image/webp"];
 
-const DAILY_LIMIT = Number(process.env.SCAN_DAILY_LIMIT) || 5;
+const DAILY_LIMIT = Number(process.env.SCAN_DAILY_LIMIT) || 3;
 
 type Access =
   | { ok: true; record: () => Promise<void> }

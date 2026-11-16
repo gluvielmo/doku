@@ -59,7 +59,7 @@ npm run build     # production build with type-checking
 
 ### Scanning (Claude)
 
-Set `ANTHROPIC_API_KEY`. When Supabase is configured, `/api/scan` only accepts signed-in users, and each gets `SCAN_DAILY_LIMIT` successful scans a day (default 5, reset at midnight UTC). Emails in `UNLIMITED_EMAILS` have no limit. If the quota table is missing, scanning is refused rather than left unmetered. Also set a monthly spend limit in the Anthropic console as a backstop.
+Set `ANTHROPIC_API_KEY`. When Supabase is configured, `/api/scan` only accepts signed-in users, and each gets `SCAN_DAILY_LIMIT` successful scans a day (default 3, reset at midnight UTC). Emails in `UNLIMITED_EMAILS` have no limit. If the quota table is missing, scanning is refused rather than left unmetered. Also set a monthly spend limit in the Anthropic console as a backstop.
 
 ### Public site
 
