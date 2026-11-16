@@ -18,6 +18,7 @@ type Phase = "pick" | "reading" | "review";
 
 const EDITOR_SETTINGS = { ...DEFAULT_SETTINGS, highlightPeers: true, highlightSameDigit: false, showConflicts: true };
 const BLANK_CELLS = emptyCells();
+const NAME_SUGGESTIONS = ["NYT", "CTC"];
 
 function parseUnsure(notes: string): number[] {
   return [...notes.matchAll(/R([1-9])\s*C([1-9])/gi)].map((m) => (Number(m[1]) - 1) * 9 + Number(m[2]) - 1);
@@ -25,7 +26,10 @@ function parseUnsure(notes: string): number[] {
 
 export function ScanScreen({ manual = false }: { manual?: boolean }) {
   const router = useRouter();
-  const fileInput = useRef<HTMLInputElement>(null);
+  // Two inputs: with `capture`, Chrome on Android goes straight to the camera and offers no way to
+  // pick an existing photo, so the library input leaves it out.
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const libraryInput = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>(manual ? "review" : "pick");
   const [image, setImage] = useState<PreparedImage | null>(null);
   const [grid, setGrid] = useState<number[]>(() => Array(81).fill(0));
@@ -106,7 +110,8 @@ export function ScanScreen({ manual = false }: { manual?: boolean }) {
   const save = () => {
     if (!check.ok) return;
     const source = image ? "scan" : "manual";
-    const fallbackTitle = `${image ? "Scanned" : "Puzzle"} · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+    // The list shows the date next to the title, so the fallback doesn't need one.
+    const fallbackTitle = image ? "Scanned" : "Puzzle";
     const rec = newGame({
       id: `${source}-${crypto.randomUUID()}`,
       source,
@@ -134,9 +139,13 @@ export function ScanScreen({ manual = false }: { manual?: boolean }) {
       {phase === "pick" && (
         <div className="scan-pick">
           <p className="muted">Take a photo of a sudoku from a newspaper, book or screen. Fill the frame with the grid and keep it as flat as you can.</p>
-          <input ref={fileInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => onFile(e.target.files?.[0])} />
-          <button className="button big" onClick={() => fileInput.current?.click()}>
-            Take or choose photo
+          <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+          <input ref={libraryInput} type="file" accept="image/*" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+          <button className="button big" onClick={() => cameraInput.current?.click()}>
+            Take a photo
+          </button>
+          <button className="button big ghost" onClick={() => libraryInput.current?.click()}>
+            Choose from photos
           </button>
           {error && (
             <div className="error">
@@ -205,6 +214,13 @@ export function ScanScreen({ manual = false }: { manual?: boolean }) {
               )}
             </div>
             <input className="text" placeholder="Name (optional), e.g. Sunday paper" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <div className="suggestions" aria-label="Name suggestions">
+              {NAME_SUGGESTIONS.map((name) => (
+                <button key={name} className={title === name ? "ghost active" : "ghost"} onClick={() => setTitle(name)}>
+                  {name}
+                </button>
+              ))}
+            </div>
             <button className="button big" disabled={!check.ok} onClick={save}>
               Save &amp; play
             </button>

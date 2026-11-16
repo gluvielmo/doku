@@ -49,6 +49,31 @@ describe("board reducer", () => {
     expect(s.rec.cells[0].k).toBe(bit(3));
   });
 
+  it("swaps corner and centre notes back and forth", () => {
+    let s = run(fresh(), { type: "select", cells: [2], mode: "replace" }, { type: "input", digit: 1, layer: "corner" }, { type: "input", digit: 2, layer: "center" });
+    s = reducer(s, { type: "swapNotes" });
+    expect(s.rec.cells[2]).toMatchObject({ c: bit(2), m: bit(1) });
+    s = reducer(s, { type: "swapNotes" });
+    expect(s.rec.cells[2]).toMatchObject({ c: bit(1), m: bit(2) });
+  });
+
+  it("reverts everything entered in test mode", () => {
+    let s = run(fresh(), { type: "select", cells: [2], mode: "replace" }, { type: "input", digit: 4 }, { type: "startTest" });
+    s = run(s, { type: "select", cells: [3], mode: "replace" }, { type: "input", digit: 6 }, { type: "input", digit: 1, layer: "corner" });
+    s = reducer(s, { type: "revertTest" });
+    expect(s.testBase).toBeNull();
+    expect(s.rec.cells[2].v).toBe(4);
+    expect(s.rec.cells[3].v).toBe(0);
+    s = reducer(s, { type: "undo" });
+    expect(s.rec.cells[3].v).toBe(6);
+  });
+
+  it("erases only the colours in colour mode", () => {
+    let s = run(fresh(), { type: "select", cells: [2], mode: "replace" }, { type: "input", digit: 4 }, { type: "input", digit: 3, layer: "color" });
+    s = run(s, { type: "setLayer", layer: "color" }, { type: "erase" });
+    expect(s.rec.cells[2]).toMatchObject({ v: 4, k: 0 });
+  });
+
   it("undoes and redoes", () => {
     let s = run(fresh(), { type: "select", cells: [2], mode: "replace" }, { type: "input", digit: 4 }, { type: "input", digit: 7 });
     s = reducer(s, { type: "undo" });

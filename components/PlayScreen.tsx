@@ -9,13 +9,14 @@ import { ArrowLeftIcon } from "@/components/icons/arrow-left";
 import { PauseIcon } from "@/components/icons/pause";
 import { PlayIcon } from "@/components/icons/play";
 import { ensureDailyGame, parseDailyId } from "@/lib/daily";
-import { capitalize, formatTime } from "@/lib/format";
+import { capitalize, formatTime, puzzleTitle } from "@/lib/format";
 import { initBoard, reducer, type Action } from "@/lib/game/reducer";
 import { boardValues, type GameRecord, type Layer, type Settings } from "@/lib/game/types";
+import { copyBoardImage } from "@/lib/screenshot";
 import { playMoveSound } from "@/lib/sfx";
 import { getGame, loadSettings, saveGame, saveSettings, useGame } from "@/lib/store";
 
-const KEY_LAYERS: Record<string, Layer> = { KeyZ: "normal", KeyX: "corner", KeyC: "center" };
+const KEY_LAYERS: Record<string, Layer> = { KeyV: "normal", Space: "corner", KeyX: "center", KeyZ: "color" };
 const ARROWS: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
 
 export function PlayScreen({ id }: { id: string }) {
@@ -47,6 +48,7 @@ function Game({ initial }: { initial: GameRecord }) {
   const [paused, setPaused] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showSolved, setShowSolved] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const lastSaved = useRef(initial.updatedAt);
   const stateRef = useRef(s);
   stateRef.current = s;
@@ -102,6 +104,14 @@ function Game({ initial }: { initial: GameRecord }) {
     };
   }, []);
 
+  // Pause when the tab is hidden or the app is left, so the clock doesn't keep the board waiting.
+  useEffect(() => {
+    if (solved) return;
+    const onHide = () => document.visibilityState === "hidden" && setPaused(true);
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
+  }, [solved]);
+
   useEffect(() => {
     if (solved) setShowSolved(true);
   }, [solved]);
@@ -124,6 +134,19 @@ function Game({ initial }: { initial: GameRecord }) {
     dispatch(a);
   };
 
+  const screenshot = () => {
+    copyBoardImage(stateRef.current.rec, stateRef.current.settings).then(
+      (how) => setNotice(how === "copied" ? "Screenshot copied to the clipboard." : how === "shared" ? "Screenshot shared." : "Screenshot downloaded."),
+      () => setNotice("Couldn't take a screenshot."),
+    );
+  };
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 2500);
+    return () => clearTimeout(t);
+  }, [notice]);
+
   const changeSettings = (next: Settings) => {
     saveSettings(next);
     dispatch({ type: "settings", settings: next });
@@ -142,7 +165,7 @@ function Game({ initial }: { initial: GameRecord }) {
         e.preventDefault();
         const d = Number(digit[1]);
         if (d === 0) return act({ type: "erase" });
-        const layer: Layer | undefined = e.shiftKey ? "corner" : mod ? "center" : undefined;
+        const layer: Layer | undefined = e.altKey ? "color" : e.shiftKey ? "corner" : mod ? "center" : undefined;
         return act({ type: "input", digit: d, layer });
       }
       if (mod && e.code === "KeyZ") {
@@ -157,11 +180,13 @@ function Game({ initial }: { initial: GameRecord }) {
         e.preventDefault();
         return dispatch({ type: "selectAll" });
       }
-      if (!mod && KEY_LAYERS[e.code]) return dispatch({ type: "setLayer", layer: KEY_LAYERS[e.code] });
-      if (e.code === "Space") {
+      if (!mod && KEY_LAYERS[e.code]) {
+        // Space would otherwise also click the focused button or scroll the page.
         e.preventDefault();
-        return dispatch({ type: "cycleLayer" });
+        return dispatch({ type: "setLayer", layer: KEY_LAYERS[e.code] });
       }
+      if (!mod && e.code === "KeyC") return act({ type: "swapNotes" });
+      if (!mod && e.code === "KeyT") return act({ type: stateRef.current.testBase ? "revertTest" : "startTest" });
       if (ARROWS[e.code]) {
         e.preventDefault();
         const [dr, dc] = ARROWS[e.code];
@@ -171,7 +196,11 @@ function Game({ initial }: { initial: GameRecord }) {
         e.preventDefault();
         return act({ type: "erase" });
       }
-      if (e.code === "Escape") return dispatch({ type: "deselect" });
+      if (e.code === "Enter" || e.code === "NumpadEnter") {
+        // Without this, Enter also clicks whichever button has focus.
+        e.preventDefault();
+        return dispatch({ type: "deselect" });
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -184,7 +213,7 @@ function Game({ initial }: { initial: GameRecord }) {
           <ArrowLeftIcon size={20} />
         </Link>
         <div className="play-title">
-          <strong>{s.rec.title}</strong>
+          <strong>{puzzleTitle(s.rec)}</strong>
           {s.rec.difficulty && <span className={`badge ${s.rec.difficulty}`}>{capitalize(s.rec.difficulty)}</span>}
         </div>
         {s.settings.showTimer && <span className="timer">{formatTime(s.rec.elapsedMs)}</span>}
@@ -205,6 +234,7 @@ function Game({ initial }: { initial: GameRecord }) {
             settings={s.settings}
             highlightDigit={highlightDigit}
             paused={paused}
+            testBase={solved ? null : s.testBase}
             multi={multi}
             onSelect={(cells, mode) => act({ type: "select", cells, mode })}
             onDoubleTap={(cell) => values[cell] && act({ type: "selectDigit", digit: values[cell] })}
@@ -217,6 +247,11 @@ function Game({ initial }: { initial: GameRecord }) {
         </div>
 
         <div className="side">
+          {notice && (
+            <div className="board-message" role="status">
+              <p>{notice}</p>
+            </div>
+          )}
           {filledButWrong && (
             <div className="board-message" role="status">
               <p>
@@ -229,6 +264,7 @@ function Game({ initial }: { initial: GameRecord }) {
             layer={s.layer}
             remaining={remaining}
             multi={multi}
+            testing={!!s.testBase && !solved}
             canUndo={s.past.length > 0 && !solved}
             canRedo={s.future.length > 0}
             onLayer={(layer) => dispatch({ type: "setLayer", layer })}
@@ -237,7 +273,12 @@ function Game({ initial }: { initial: GameRecord }) {
             onUndo={() => act({ type: "undo" })}
             onRedo={() => act({ type: "redo" })}
             onToggleMulti={() => setMulti((m) => !m)}
+            onSwapNotes={() => act({ type: "swapNotes" })}
+            onStartTest={() => act({ type: "startTest" })}
+            onKeepTest={() => act({ type: "keepTest" })}
+            onRevertTest={() => act({ type: "revertTest" })}
             onClearNotes={() => act({ type: "clearNotes" })}
+            onScreenshot={screenshot}
             onRestart={() => confirm("Restart this puzzle? All progress will be cleared.") && act({ type: "restart" })}
             onSettings={() => setSettingsOpen(true)}
           />

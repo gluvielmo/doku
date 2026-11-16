@@ -13,6 +13,8 @@
   --accent-soft: rgba(138, 90, 43, 0.14);
   --given: #3a2a1c;
   --entry: #8a5a2b;
+  --note: #3f6c9e; /* centre marks: a cool blue so they never read as placed digits */
+  --test: #8a45b8; /* digits entered in test mode */
   --peer: rgba(138, 90, 43, 0.07);
   --same: rgba(138, 90, 43, 0.2);
   --select: rgba(212, 148, 48, 0.42);
@@ -57,6 +59,8 @@
     --accent-soft: rgba(217, 154, 78, 0.18);
     --given: #efe2d1;
     --entry: #d99a4e;
+    --note: #8fb6e3;
+    --test: #c79cff;
     --peer: rgba(217, 154, 78, 0.07);
     --same: rgba(217, 154, 78, 0.2);
     --select: rgba(255, 196, 0, 0.28);
@@ -739,12 +743,50 @@ kbd {
   max-width: 92%;
   font-size: 3.2cqw;
   line-height: 1.1;
-  color: var(--entry);
+  color: var(--note);
   letter-spacing: -0.02em;
 }
 
 .marks-center.dense {
   font-size: 2.4cqw;
+}
+
+/* Corner and centre marks together: corners split over the top and bottom rows, centre marks
+   keep to one line in the middle row. */
+.marks-corner.split {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.marks-corner.split > div {
+  display: flex;
+  justify-content: space-between;
+  height: 33%;
+}
+
+.marks-corner.split span {
+  width: 1.2em;
+}
+
+.marks-center.squeeze {
+  flex-wrap: nowrap;
+  max-width: 100%;
+  font-size: 2.4cqw;
+}
+
+.marks-center.squeeze span {
+  width: auto;
+  min-width: 0.8em;
+  height: 1.3em;
+}
+
+.marks-center.squeeze.dense {
+  font-size: 1.85cqw;
+}
+
+.cell.tested .digit {
+  color: var(--test);
 }
 
 .marks-corner .hl,
@@ -781,7 +823,8 @@ kbd {
   --layers-pad: 4px;
   position: relative;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* minmax(0, …): equal tabs whatever their content, so the sliding highlight lines up. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: var(--layers-pad);
   border-radius: 12px;
   background: var(--surface-2);
@@ -794,7 +837,7 @@ kbd {
   top: var(--layers-pad);
   bottom: var(--layers-pad);
   left: var(--layers-pad);
-  width: calc((100% - 2 * var(--layers-pad)) / 3);
+  width: calc((100% - 2 * var(--layers-pad)) / 4);
   border-radius: calc(12px - var(--layers-pad));
   background: var(--surface);
   box-shadow: var(--shadow);
@@ -917,8 +960,8 @@ kbd {
 
 .tools {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
 }
 
 .tools > button,
@@ -976,6 +1019,20 @@ kbd {
   }
 }
 
+/* Closing plays the opening in reverse: same keyframes and duration, the easing curve mirrored
+   (ease-out becomes the matching ease-in) and the item stagger flipped. */
+.menu.closing {
+  animation: menu-out 220ms cubic-bezier(0.64, 0, 0.78, 0) forwards;
+  pointer-events: none;
+}
+
+@keyframes menu-out {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+}
+
 .menu button {
   padding: 10px 12px;
   border: 0;
@@ -989,6 +1046,23 @@ kbd {
 .menu button:nth-last-child(1) { animation-delay: 30ms; }
 .menu button:nth-last-child(2) { animation-delay: 60ms; }
 .menu button:nth-last-child(3) { animation-delay: 90ms; }
+.menu button:nth-last-child(4) { animation-delay: 120ms; }
+
+.menu.closing button {
+  animation: menu-item-out 240ms cubic-bezier(0.64, 0, 0.78, 0) both;
+}
+
+.menu.closing button:nth-child(1) { animation-delay: 0ms; }
+.menu.closing button:nth-child(2) { animation-delay: 30ms; }
+.menu.closing button:nth-child(3) { animation-delay: 60ms; }
+.menu.closing button:nth-child(4) { animation-delay: 90ms; }
+
+@keyframes menu-item-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
 
 @keyframes menu-item-in {
   from {
@@ -999,6 +1073,52 @@ kbd {
 
 .menu button:hover {
   background: var(--surface-2);
+}
+
+.test-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--test) 40%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--test) 8%, var(--surface));
+  font-size: 0.875rem;
+}
+
+.test-bar span {
+  flex: 1;
+  min-width: 0;
+}
+
+.test-bar strong {
+  color: var(--test);
+}
+
+.test-bar .button {
+  min-height: 40px;
+  background: var(--test);
+  color: var(--surface);
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -4px;
+}
+
+.suggestions .ghost {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.suggestions .ghost.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .board-message {

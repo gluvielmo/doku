@@ -3,6 +3,7 @@
 import { useMemo, useRef } from "react";
 import { BOXES, PEERS, digitsOf, findConflicts } from "@/lib/sudoku/core";
 import type { CellState, Settings } from "@/lib/game/types";
+import { CORNER_ORDER } from "@/lib/screenshot";
 
 export interface BoardProps {
   givens: string;
@@ -15,27 +16,56 @@ export interface BoardProps {
   hintFocus?: number[];
   hintTargets?: number[];
   paused?: boolean;
+  /** Test mode: the cells as they were before testing; digits entered since are marked. */
+  testBase?: CellState[] | null;
   /** Pointer selection: "replace" a fresh tap, "toggle" with modifier/multi mode, "add" while dragging. */
   onSelect?: (cells: number[], mode: "replace" | "add" | "toggle") => void;
   onDoubleTap?: (cell: number) => void;
   multi?: boolean;
 }
 
-// SudokuPad-style corner positions, filled in order: corners, then edges, then centre.
-const CORNER_ORDER = [0, 2, 6, 8, 1, 7, 3, 5, 4];
-
 function colorBackground(mask: number): string | undefined {
   const colors = digitsOf(mask);
   if (!colors.length) return undefined;
-  if (colors.length === 1) return `var(--c${colors[0]})`;
+  // The colours are translucent: --cell underneath keeps the grid lines from showing through.
+  if (colors.length === 1) return `linear-gradient(var(--c${colors[0]}), var(--c${colors[0]})), var(--cell)`;
   const step = 100 / colors.length;
   const stops = colors.map((c, i) => `var(--c${c}) ${i * step}% ${(i + 1) * step}%`).join(", ");
-  return `conic-gradient(from 45deg, ${stops})`;
+  return `conic-gradient(from 45deg, ${stops}), var(--cell)`;
 }
 
 function Marks({ cell, layout, hl }: { cell: CellState; layout: Settings["cornerLayout"]; hl: number | null }) {
   const corner = digitsOf(cell.c);
   const center = digitsOf(cell.m);
+  // With both kinds of notes, corner marks keep to the top and bottom rows and centre marks
+  // get the middle row to themselves, so the two never overlap.
+  if (corner.length && center.length) {
+    const half = Math.ceil(corner.length / 2);
+    const row = (ds: number[]) => (
+      <div>
+        {ds.map((d) => (
+          <span key={d} className={d === hl ? "hl" : undefined}>
+            {d}
+          </span>
+        ))}
+      </div>
+    );
+    return (
+      <>
+        <div className="marks-corner split" aria-hidden>
+          {row(corner.slice(0, half))}
+          {row(corner.slice(half))}
+        </div>
+        <div className={`marks-center squeeze${center.length > 4 ? " dense" : ""}`} aria-hidden>
+          {center.map((d) => (
+            <span key={d} className={d === hl ? "hl" : undefined}>
+              {d}
+            </span>
+          ))}
+        </div>
+      </>
+    );
+  }
   const slots: (number | null)[] = Array(9).fill(null);
   if (layout === "grid") corner.forEach((d) => (slots[d - 1] = d));
   else corner.forEach((d, i) => (slots[CORNER_ORDER[i]] = d));
@@ -64,7 +94,7 @@ function Marks({ cell, layout, hl }: { cell: CellState; layout: Settings["corner
 }
 
 export function Board(props: BoardProps) {
-  const { givens, cells, solution, selection, settings, highlightDigit, flagged, hintFocus, hintTargets, paused } = props;
+  const { givens, cells, solution, selection, settings, highlightDigit, flagged, hintFocus, hintTargets, paused, testBase } = props;
   const ref = useRef<HTMLDivElement>(null);
   // deselect: the press started on the only selected cell; it deselects on release unless it became a drag.
   const drag = useRef<{ active: boolean; last: number; deselect: boolean }>({ active: false, last: -1, deselect: false });
@@ -156,6 +186,7 @@ export function Board(props: BoardProps) {
               wrong && "wrong",
               focusSet.has(i) && "hint-focus",
               targetSet.has(i) && "hint-target",
+              testBase && v && !given && testBase[i].v !== v && "tested",
             ]
               .filter(Boolean)
               .join(" ");

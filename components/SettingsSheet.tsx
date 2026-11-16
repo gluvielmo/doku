@@ -47,10 +47,10 @@ export function SettingsSheet({ settings, onChange, onClose }: { settings: Setti
             <kbd>1</kbd>–<kbd>9</kbd> place · <kbd>Shift</kbd>+digit corner · <kbd>Ctrl</kbd>+digit centre · <kbd>Alt</kbd>+digit colour
           </p>
           <p>
-            <kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> <kbd>V</kbd> switch mode · <kbd>Space</kbd> cycle · arrows move (+<kbd>Shift</kbd> extend)
+            <kbd>V</kbd> normal · <kbd>Space</kbd> corner · <kbd>X</kbd> centre · <kbd>Z</kbd> colour · <kbd>C</kbd> swap notes · <kbd>T</kbd> test · arrows move (+<kbd>Shift</kbd> extend)
           </p>
           <p>
-            <kbd>Backspace</kbd> erase · <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> undo/redo · <kbd>Ctrl</kbd>+<kbd>A</kbd> select all · <kbd>Esc</kbd> deselect ·
+            <kbd>Backspace</kbd> erase · <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> undo/redo · <kbd>Ctrl</kbd>+<kbd>A</kbd> select all · <kbd>Enter</kbd> deselect ·
             double-click selects all of a digit
           </p>
         </div>

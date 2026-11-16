@@ -7,3 +7,5 @@ next-env.d.ts
 .env*
 .DS_Store
 supabase/.temp
+!.env.example
+.claude/settings.local.json

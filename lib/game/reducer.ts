@@ -16,6 +16,8 @@ export interface BoardState {
   past: CellState[][];
   future: CellState[][];
   flagged: number[]; // cells marked wrong by "check"
+  /** Test mode: the board as it was when testing started, restored by "revertTest". */
+  testBase: CellState[] | null;
 }
 
 export type Action =
@@ -24,13 +26,16 @@ export type Action =
   | { type: "deselect" }
   | { type: "move"; dr: number; dc: number; extend: boolean }
   | { type: "setLayer"; layer: Layer }
-  | { type: "cycleLayer" }
   | { type: "input"; digit: number; layer?: Layer }
   | { type: "erase" }
   | { type: "undo" }
   | { type: "redo" }
   | { type: "fillNotes" }
   | { type: "clearNotes" }
+  | { type: "swapNotes" }
+  | { type: "startTest" }
+  | { type: "keepTest" }
+  | { type: "revertTest" }
   | { type: "applyHint"; step: Step; cands: number[] }
   | { type: "check" }
   | { type: "restart" }
@@ -39,12 +44,8 @@ export type Action =
   | { type: "replace"; rec: GameRecord }
   | { type: "settings"; settings: Settings };
 
-// Cycle order for the "cycleLayer" action (Space bar). "color" has no tab in
-// the UI, so it's left out here to avoid landing on an unreachable mode.
-const LAYERS: Layer[] = ["normal", "corner", "center"];
-
 export function initBoard(rec: GameRecord, settings: Settings): BoardState {
-  return { rec, settings, selection: [], cursor: 40, layer: "normal", focusDigit: null, past: [], future: [], flagged: [] };
+  return { rec, settings, selection: [], cursor: 40, layer: "normal", focusDigit: null, past: [], future: [], flagged: [], testBase: null };
 }
 
 const cloneCells = (cells: CellState[]) => cells.map((c) => ({ ...c }));
@@ -143,8 +144,6 @@ export function reducer(s: BoardState, a: Action): BoardState {
     }
     case "setLayer":
       return { ...s, layer: a.layer };
-    case "cycleLayer":
-      return { ...s, layer: LAYERS[(LAYERS.indexOf(s.layer) + 1) % LAYERS.length] };
     case "input":
       return input(s, a.digit, a.layer ?? s.layer);
     case "erase":
@@ -177,6 +176,23 @@ export function reducer(s: BoardState, a: Action): BoardState {
       for (const cell of cells) cell.c = cell.m = 0;
       return commit(s, cells);
     }
+    case "swapNotes": {
+      // Corner marks become centre marks and vice versa, so pressing it again switches back.
+      const targets = s.selection.filter((i) => !isGiven(s.rec, i) && !s.rec.cells[i].v && (s.rec.cells[i].c || s.rec.cells[i].m));
+      if (!targets.length || s.rec.status === "solved") return s;
+      const cells = cloneCells(s.rec.cells);
+      for (const i of targets) [cells[i].c, cells[i].m] = [cells[i].m, cells[i].c];
+      return commit(s, cells);
+    }
+    case "startTest":
+      return s.rec.status === "solved" ? s : { ...s, testBase: s.rec.cells };
+    case "keepTest":
+      return { ...s, testBase: null };
+    case "revertTest": {
+      if (!s.testBase) return s;
+      // A regular commit, so even the revert can be undone.
+      return { ...commit(s, s.testBase), testBase: null };
+    }
     case "applyHint": {
       const cells = cloneCells(s.rec.cells);
       for (const { cell, digit } of a.step.placements) {
@@ -205,7 +221,7 @@ export function reducer(s: BoardState, a: Action): BoardState {
     }
     case "restart": {
       const cells = s.rec.cells.map(() => ({ v: 0, c: 0, m: 0, k: 0 }));
-      return { ...commit(s, cells, { status: "playing", elapsedMs: 0, hintsUsed: 0 }), selection: [], flagged: [] };
+      return { ...commit(s, cells, { status: "playing", elapsedMs: 0, hintsUsed: 0 }), selection: [], flagged: [], testBase: null };
     }
     case "selectDigit": {
       const values = boardValues(s.rec);
@@ -216,7 +232,7 @@ export function reducer(s: BoardState, a: Action): BoardState {
       if (s.rec.status === "solved") return s;
       return { ...s, rec: { ...s.rec, elapsedMs: s.rec.elapsedMs + a.ms } };
     case "replace":
-      return { ...s, rec: a.rec, past: [], future: [], flagged: [] };
+      return { ...s, rec: a.rec, past: [], future: [], flagged: [], testBase: null };
     case "settings":
       return { ...s, settings: a.settings };
   }

@@ -8,7 +8,7 @@ import { ChevronLeftIcon } from "@/components/icons/chevron-left";
 import { ChevronRightIcon } from "@/components/icons/chevron-right";
 import { XIcon } from "@/components/icons/x";
 import { DAILY_DIFFICULTIES, formatDate, localDate, shiftDate } from "@/lib/daily";
-import { capitalize, formatTime } from "@/lib/format";
+import { capitalize, formatTime, puzzleTitle } from "@/lib/format";
 import { dailyId, progressOf, type GameRecord } from "@/lib/game/types";
 import { deleteGame, useGames } from "@/lib/store";
 
@@ -59,7 +59,7 @@ export function Home() {
         <Link href={`/play/${current.id}`} className="card continue">
           <div>
             <small className="eyebrow">Continue</small>
-            <strong>{current.title}</strong>
+            <strong>{puzzleTitle(current)}</strong>
             <Status game={current} />
           </div>
           <Progress game={current} />
@@ -120,7 +120,7 @@ export function Home() {
                 <Link href={`/play/${g.id}`} className="card puzzle">
                   {g.thumbnail ? <img src={g.thumbnail} alt="" /> : <div className="thumb-placeholder">#</div>}
                   <div className="puzzle-info">
-                    <strong>{g.title}</strong>
+                    <strong>{puzzleTitle(g)}</strong>
                     <span>
                       {g.difficulty && <span className={`badge ${g.difficulty}`}>{capitalize(g.difficulty)}</span>} <Status game={g} />
                     </span>
