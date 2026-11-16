@@ -25,9 +25,8 @@ const SCHEMA = {
     is_sudoku: { type: "boolean", description: "False if the image does not contain a 9x9 sudoku grid." },
     rows: {
       type: "array",
-      description:
-        "The 9 rows, top to bottom. Each row is 3 groups of 3 cells separated by '|', one group per 3x3 box, e.g. '5.3|.7.|..1'. Digits 1-9 for printed givens, '.' for empty cells.",
-      items: { type: "string" },
+      description: "The 9 rows, top to bottom. Each row is a list of exactly 9 numbers, left to right: 1-9 for a printed given, 0 for an empty cell.",
+      items: { type: "array", items: { type: "integer" } },
     },
     unsure_cells: {
       type: "string",
@@ -40,17 +39,31 @@ const INSTRUCTIONS = `Transcribe the printed givens of the 9x9 sudoku in this ph
 
 How to read it:
 - Find the grid's outer border and the thicker lines that split it into nine 3x3 boxes. If the photo is rotated or skewed, read the grid in its natural upright orientation.
-- Work one row at a time, box by box. For each of the 9 cells, decide: empty, or which printed digit. Count the empty cells explicitly; most errors come from losing track of a blank and shifting the following digits into the wrong cells.
+- Work one row at a time, box by box, and write exactly 9 numbers per row: the printed digit, or 0 for an empty cell. Write a 0 for every blank; most errors come from losing track of a blank and shifting the following digits into the wrong cells.
 - Only printed givens count. Ignore handwritten digits, pencil marks, small candidate notes, shading, and anything outside the grid.
 - Look closely at digits that are easy to confuse in print: 1/7, 3/8, 5/6, 6/8, 8/9, 4/9.
 - Before answering, check each row, column and 3x3 box: a valid puzzle never repeats a digit in any of them. If one does, look at those cells again.`;
 
-/** Parses '5.3|.7.|..1' rows into an 81-char string, or null if the shape is wrong. */
-export function parseRows(rows: unknown): string | null {
-  if (!Array.isArray(rows) || rows.length !== 9) return null;
-  const cleaned = rows.map((r) => (typeof r === "string" ? r.replace(/[|\s]/g, "").replace(/[^1-9]/g, ".") : ""));
-  if (cleaned.some((r) => r.length !== 9)) return null;
-  return cleaned.join("");
+/**
+ * Turns the model's rows into an 81-char string ('.' for empty). Accepts number lists (the schema)
+ * and strings like '5.3|.7.|..1'. Rows of the wrong length are padded or cut to 9 and reported,
+ * so a single miscounted row leads to a re-read instead of a failed scan.
+ */
+export function parseRows(rows: unknown): { grid: string; badRows: number[] } | null {
+  if (!Array.isArray(rows) || rows.length < 8 || rows.length > 10) return null;
+  const badRows: number[] = [];
+  const cells = Array.from({ length: 9 }, (_, r) => {
+    const row = rows[r];
+    const list = Array.isArray(row)
+      ? row.map((v) => (typeof v === "number" && v >= 1 && v <= 9 ? String(v) : "."))
+      : typeof row === "string"
+        ? [...row.replace(/[|,\s]/g, "")].map((ch) => (ch >= "1" && ch <= "9" ? ch : "."))
+        : [];
+    if (list.length !== 9) badRows.push(r);
+    return [...list, ".........".slice(0, Math.max(0, 9 - list.length))].join("").slice(0, 9);
+  });
+  if (rows.length !== 9) for (let r = 0; r < 9; r++) if (!badRows.includes(r)) badRows.push(r);
+  return { grid: cells.join(""), badRows: badRows.sort((a, b) => a - b) };
 }
 
 function toGrid(s: string): Grid {
@@ -58,18 +71,15 @@ function toGrid(s: string): Grid {
 }
 
 function formatRows(s: string): string {
-  return Array.from({ length: 9 }, (_, r) => {
-    const row = s.slice(r * 9, r * 9 + 9);
-    return `Row ${r + 1}: ${row.slice(0, 3)}|${row.slice(3, 6)}|${row.slice(6, 9)}`;
-  }).join("\n");
+  return Array.from({ length: 9 }, (_, r) => `Row ${r + 1}: [${[...s.slice(r * 9, r * 9 + 9)].map((ch) => (ch === "." ? 0 : ch)).join(", ")}]`).join("\n");
 }
 
 const cellName = (i: number) => `R${Math.floor(i / 9) + 1}C${(i % 9) + 1}`;
 
 /** Human-readable rule problems with a reading, for the re-check prompt. Empty when it's a valid puzzle. */
-export function findProblems(s: string): string[] {
+export function findProblems(s: string, badRows: number[] = []): string[] {
   const g = toGrid(s);
-  const problems: string[] = [];
+  const problems: string[] = badRows.map((r) => `Row ${r + 1} didn't have exactly 9 cells, so its digits may be in the wrong columns.`);
   const units: [string, number[][]][] = [
     ["row", ROWS],
     ["column", COLS],
@@ -120,10 +130,13 @@ export async function readSudoku(client: Anthropic, image: string, mediaType: Me
   if (first === "refused") return { ok: false, status: 422, error: "The image couldn't be processed. Try another photo." };
   if (first === "empty") return { ok: false, status: 502, error: "No answer from the model." };
   if (!first.is_sudoku) return { ok: false, status: 422, error: "No sudoku grid found in that photo." };
-  const grid = parseRows(first.rows);
-  if (!grid) return { ok: false, status: 422, error: "Couldn't read a full 9×9 grid. Try a straighter, closer photo." };
-
-  const problems = findProblems(grid);
+  const read1 = parseRows(first.rows);
+  if (!read1) {
+    console.info(`scan: unparseable rows ${JSON.stringify(first.rows).slice(0, 300)}`);
+    return { ok: false, status: 422, error: "Couldn't read a full 9×9 grid. Try a straighter, closer photo." };
+  }
+  const grid = read1.grid;
+  const problems = findProblems(grid, read1.badRows);
   if (!problems.length) return { ok: true, grid, notes: first.unsure_cells, passes: 1, problems };
 
   // Pass 2: same photo, the first reading, and what's wrong with it.
@@ -138,11 +151,11 @@ ${problems.map((p) => `- ${p}`).join("\n")}
 Look at the photo again, paying most attention to the rows, columns and boxes named above, and to whether any blank was skipped or any digit shifted into a neighbouring cell. Return the corrected full grid.`;
   const second = await ask(client, [imageBlock, { type: "text", text: recheck }], "high");
   if (typeof second === "object" && second.is_sudoku) {
-    const grid2 = parseRows(second.rows);
-    const problems2 = grid2 ? findProblems(grid2) : null;
+    const read2 = parseRows(second.rows);
+    const problems2 = read2 ? findProblems(read2.grid, read2.badRows) : null;
     // Keep whichever reading has fewer problems; the user reviews and fixes the grid either way.
-    if (grid2 && problems2 && problems2.length <= problems.length) {
-      return { ok: true, grid: grid2, notes: second.unsure_cells, passes: 2, problems: problems2 };
+    if (read2 && problems2 && problems2.length <= problems.length) {
+      return { ok: true, grid: read2.grid, notes: second.unsure_cells, passes: 2, problems: problems2 };
     }
   }
   return { ok: true, grid, notes: first.unsure_cells, passes: 2, problems };

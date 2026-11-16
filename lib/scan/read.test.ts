@@ -6,12 +6,23 @@ const PUZZLE = "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28..
 const rows = (s: string) => Array.from({ length: 9 }, (_, r) => s.slice(r * 9, r * 9 + 9).replace(/(...)(...)(...)/, "$1|$2|$3"));
 
 describe("parseRows", () => {
-  it("reads box-grouped rows", () => {
-    expect(parseRows(rows(PUZZLE))).toBe(PUZZLE);
+  it("reads number lists", () => {
+    const lists = Array.from({ length: 9 }, (_, r) => [...PUZZLE.slice(r * 9, r * 9 + 9)].map((ch) => (ch === "." ? 0 : Number(ch))));
+    expect(parseRows(lists)).toEqual({ grid: PUZZLE, badRows: [] });
   });
-  it("rejects rows that aren't 9 cells", () => {
-    expect(parseRows([...rows(PUZZLE).slice(0, 8), "53.|.7.|.."])).toBeNull();
-    expect(parseRows(rows(PUZZLE).slice(0, 8))).toBeNull();
+  it("reads box-grouped strings", () => {
+    expect(parseRows(rows(PUZZLE))).toEqual({ grid: PUZZLE, badRows: [] });
+  });
+  it("pads a short row and reports it instead of failing", () => {
+    const short = [...rows(PUZZLE).slice(0, 8), "...|.8.|.7"];
+    const parsed = parseRows(short);
+    expect(parsed?.badRows).toEqual([8]);
+    expect(parsed?.grid).toHaveLength(81);
+    expect(findProblems(parsed!.grid, parsed!.badRows)[0]).toMatch(/Row 9 didn't have exactly 9 cells/);
+  });
+  it("gives up on something that isn't a grid", () => {
+    expect(parseRows(["123"])).toBeNull();
+    expect(parseRows("nope")).toBeNull();
   });
 });
 

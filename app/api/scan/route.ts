@@ -81,6 +81,7 @@ export async function POST(request: Request) {
 
   const client = new Anthropic();
   try {
+    console.info(`scan: image_kb=${Math.round((image.length * 3) / 4 / 1024)}`);
     const result = await readSudoku(client, image, mediaType as MediaType);
     if (!result.ok) return Response.json({ error: result.error }, { status: result.status });
     if (result.problems.length) console.info(`scan: still invalid after ${result.passes} passes: ${result.problems.join(" ")}`);
