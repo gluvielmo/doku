@@ -1,10 +1,13 @@
 "use client";
 
-// Downscale photos before upload: phone cameras produce 5-15 MB images, but
-// ~1000px on the long edge leaves each sudoku cell ~100px wide, plenty for
-// reading printed digits. Vision cost scales with pixel area, so this halves it.
+// Downscale photos before upload: phone cameras produce 5-15 MB images. The scan model reads
+// images up to 2576px on the long edge (~3.75 MP), and the grid is often only part of the photo,
+// so keep close to that: at 1000px a grid filling half a newspaper photo had cells ~50px wide,
+// which is where printed digits start getting misread. Stays well under Vercel's 4.5 MB body limit.
 
-const MAX_EDGE = 1000;
+const SCAN_EDGE = 2400;
+const SCAN_MAX_PIXELS = 3_600_000;
+const PREVIEW_EDGE = 1000;
 const THUMB_EDGE = 160;
 
 async function decode(file: Blob): Promise<CanvasImageSource & { width: number; height: number }> {
@@ -23,8 +26,8 @@ async function decode(file: Blob): Promise<CanvasImageSource & { width: number; 
   }
 }
 
-function render(src: CanvasImageSource & { width: number; height: number }, maxEdge: number, quality: number): string {
-  const scale = Math.min(1, maxEdge / Math.max(src.width, src.height));
+function render(src: CanvasImageSource & { width: number; height: number }, maxEdge: number, quality: number, maxPixels = Infinity): string {
+  const scale = Math.min(1, maxEdge / Math.max(src.width, src.height), Math.sqrt(maxPixels / (src.width * src.height)));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(src.width * scale);
   canvas.height = Math.round(src.height * scale);
@@ -43,9 +46,10 @@ export interface PreparedImage {
 
 export async function prepareImage(file: Blob): Promise<PreparedImage> {
   const src = await decode(file);
-  const previewUrl = render(src, MAX_EDGE, 0.88);
+  const scan = render(src, SCAN_EDGE, 0.9, SCAN_MAX_PIXELS);
+  const previewUrl = render(src, PREVIEW_EDGE, 0.85);
   return {
-    base64: previewUrl.slice(previewUrl.indexOf(",") + 1),
+    base64: scan.slice(scan.indexOf(",") + 1),
     mediaType: "image/jpeg",
     previewUrl,
     thumbnail: render(src, THUMB_EDGE, 0.6),

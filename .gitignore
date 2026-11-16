@@ -9,3 +9,4 @@ next-env.d.ts
 supabase/.temp
 !.env.example
 .claude/settings.local.json
+scan-samples/
