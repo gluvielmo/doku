@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { deleteAccount, sendLoginCode, signInWithGoogle, signOut, syncAll, useSyncState, verifyLoginCode } from "@/lib/sync/engine";
 
 function GoogleLogo() {
@@ -15,8 +15,23 @@ function GoogleLogo() {
   );
 }
 
+/**
+ * Email codes go through Supabase's built-in sender, which only allows a few emails an hour for the
+ * whole project, so they're hidden for the public. They stay available in the installed iPhone app,
+ * where Google sign-in opens in Safari and the session never reaches the app. Set
+ * NEXT_PUBLIC_EMAIL_SIGNIN=1 once a real email provider is connected to Supabase to show them everywhere.
+ */
+function useEmailSignIn(): boolean {
+  const [show, setShow] = useState(process.env.NEXT_PUBLIC_EMAIL_SIGNIN === "1");
+  useEffect(() => {
+    if ((navigator as Navigator & { standalone?: boolean }).standalone) setShow(true);
+  }, []);
+  return show;
+}
+
 export function AccountSheet({ onClose }: { onClose: () => void }) {
   const sync = useSyncState();
+  const emailSignIn = useEmailSignIn();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
@@ -68,22 +83,26 @@ export function AccountSheet({ onClose }: { onClose: () => void }) {
               <GoogleLogo />
               Continue with Google
             </button>
-            <div className="or">or use your email</div>
-            <form
-              className="stack"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void run(async () => {
-                  await sendLoginCode(email.trim());
-                  setSent(true);
-                });
-              }}
-            >
-              <input className="text" type="email" required autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <button className="ghost" disabled={busy}>
-                Email me a code
-              </button>
-            </form>
+            {emailSignIn && (
+              <>
+                <div className="or">or use your email</div>
+                <form
+                  className="stack"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void run(async () => {
+                      await sendLoginCode(email.trim());
+                      setSent(true);
+                    });
+                  }}
+                >
+                  <input className="text" type="email" required autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <button className="ghost" disabled={busy}>
+                    Email me a code
+                  </button>
+                </form>
+              </>
+            )}
             <p className="muted fine">
               Signing in stores your email and puzzle progress. See the <Link href="/privacy">privacy page</Link>.
             </p>

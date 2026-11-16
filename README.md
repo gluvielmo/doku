@@ -8,7 +8,7 @@ A web sudoku app for phone and desktop:
 - **Test mode**: try out digits on a branch of the puzzle, then keep them or revert to where you were in one tap.
 - **Swap notes**: turn the corner marks in the selected cells into centre marks and back.
 - **Copy screenshot**: copy a PNG of the board in the current theme to share.
-- **Cross-device progress**: sign in with Google or an email code and pick up where you left off on any device.
+- **Cross-device progress**: sign in with Google and pick up where you left off on any device.
 
 ### Keyboard shortcuts
 
@@ -53,9 +53,9 @@ npm run build     # production build with type-checking
    - In [Google Cloud Console](https://console.cloud.google.com) → **APIs & Services → Credentials**, create an **OAuth client ID** of type *Web application*. Under **Authorized redirect URIs**, add `https://<project-ref>.supabase.co/auth/v1/callback` (Supabase shows the exact URL on the Google provider page).
    - In Supabase **Authentication → Sign In / Providers → Google**, enable it and paste the client ID and secret.
    - To let anyone sign in, open **Google Auth Platform → Audience** and click **Publish app** (in "Testing" only listed test users can sign in). Under **Branding**, set the app name, support email, homepage (`https://<your-domain>/`), privacy policy (`https://<your-domain>/privacy`) and add your domain under **Authorized domains**. With only the basic email and profile scopes, publishing needs no Google review, unless you upload a logo.
-7. For more than a handful of sign-ins an hour, connect your own email provider under **Authentication → Emails → SMTP settings**: Supabase's built-in sender is heavily rate-limited.
+7. Email codes are hidden by default, because Supabase's built-in sender only allows a few emails an hour for the whole project. They still show in the installed iPhone app, where Google sign-in can't reach the app (see below). To offer them to everyone, connect your own email provider under **Authentication → Emails → SMTP settings** and set `NEXT_PUBLIC_EMAIL_SIGNIN=1`.
 
-   Sign-in runs entirely in the browser (PKCE): Google redirects back to the page you started from, and supabase-js exchanges the code on load. On iOS, an installed home-screen app opens Google in a separate browser and the session lands there instead, so use the email code inside the installed app.
+   Sign-in runs entirely in the browser (PKCE): Google redirects back to the page you started from, and supabase-js exchanges the code on load. On iOS, an installed home-screen app opens Google in a separate browser and the session lands there instead, so the installed app shows the email-code option.
 
 ### Scanning (Claude)
 
